@@ -1,0 +1,98 @@
+import ccxt
+import time
+import logging
+
+# Configuración del logging para seguimiento
+logging.basicConfig(
+    filename='sensei_bot.log',
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s'
+)
+
+# Parámetros de configuración
+API_KEY = 'TU_API_KEY_AQUI'
+API_SECRET = 'TU_SECRET_KEY_AQUI'
+
+# Configurar exchange Binance con ccxt
+exchange = ccxt.binance({
+    'apiKey': API_KEY,
+    'secret': API_SECRET,
+    'enableRateLimit': True,
+    # Para testnet: agregá 'urls': {'api': 'https://testnet.binance.vision/api'}
+})
+
+# Lista de criptomonedas a operar
+cryptos = ['ETH/USDT', 'BNB/USDT', 'MATIC/USDT', 'SOL/USDT', 'DOGE/USDT']
+
+# Parámetros de la estrategia
+WAIT_SECONDS = 10
+MAX_GAIN = 2.0  # dólares
+MAX_LOSS = 1.0  # dólares
+MAX_OPERATIONS = 1000  # para evitar loop infinito
+
+capital = 5.0  # capital inicial estimado (para control interno)
+min_capital = 1.0  # capital mínimo para seguir operando
+
+# Función que simula detectar punto fuerte de entrada
+def es_punto_fuerte():
+    # Aquí podés meter análisis real, ahora es simple random
+    import random
+    return random.random() < 0.3
+
+# Función para calcular cantidad a comprar según capital y precio
+def calcular_cantidad(symbol):
+    try:
+        ticker = exchange.fetch_ticker(symbol)
+        precio = ticker['last']
+        cantidad = round(capital / precio, 5)
+        return cantidad if cantidad > 0 else 0
+    except Exception as e:
+        logging.error(f"Error obteniendo precio de {symbol}: {e}")
+        return 0
+
+def operar(symbol):
+    global capital
+
+    if not es_punto_fuerte():
+        logging.info(f"No es punto fuerte para {symbol}. Saltando operación.")
+        return
+
+    cantidad = calcular_cantidad(symbol)
+    if cantidad == 0:
+        logging.warning(f"Cantidad a comprar es 0 para {symbol}.")
+        return
+
+    try:
+        logging.info(f"Ejecutando orden de compra market en {symbol} cantidad {cantidad}")
+        orden = exchange.create_market_buy_order(symbol, cantidad)
+
+        # Aquí simulamos resultado con probabilidad (podés cambiar a análisis real)
+        import random
+        resultado = random.choices(['ganancia', 'perdida'], weights=[0.6, 0.4])[0]
+
+        if resultado == 'ganancia':
+            capital += MAX_GAIN
+            logging.info(f"Ganancia de ${MAX_GAIN} en {symbol}. Capital ahora ${capital:.2f}")
+        else:
+            capital -= MAX_LOSS
+            logging.info(f"Pérdida de ${MAX_LOSS} en {symbol}. Capital ahora ${capital:.2f}")
+
+        time.sleep(WAIT_SECONDS)
+
+    except Exception as e:
+        logging.error(f"Error ejecutando orden en {symbol}: {e}")
+
+def run():
+    operaciones = 0
+    logging.info("Bot Sensei iniciado, operando 24/7...")
+    while capital > min_capital and operaciones < MAX_OPERATIONS:
+        for crypto in cryptos:
+            operar(crypto)
+            operaciones += 1
+            if operaciones >= MAX_OPERATIONS:
+                break
+
+    logging.info("Bot finalizó operaciones o capital insuficiente.")
+
+if __name__ == '__main__':
+    run()
