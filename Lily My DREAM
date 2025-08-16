@@ -1,0 +1,98 @@
+import ccxt
+import time
+import logging
+import random
+
+# Configuración del logging para seguimiento
+logging.basicConfig(
+    filename='sensei_bot.log',
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s:%(message)s'
+)
+
+# --- Claves de Binance Testnet ---
+API_KEY = oKPAyDakwbeU2jBYi0l4ldsz66OYT269ZWihkB0mF3syrDiDk7FZ1YM8o2p05eqZ
+API_SECRET = EXaLhwuRt441FPvvDZYU4cZyYuzma6Csc9WdcFgFFRELmCjrP1RZLD5nNanz5Do3
+
+# Conexión a Binance Testnet
+exchange = ccxt.binance({
+    'apiKey': oKPAyDakwbeU2jBYi0l4ldsz66OYT269ZWihkB0mF3syrDiDk7FZ1YM8o2p05eqZ
+    'secret': EXaLhwuRt441FPvvDZYU4cZyYuzma6Csc9WdcFgFFRELmCjrP1RZLD5nNanz5Do3
+    'enableRateLimit': True,
+    'options': {'defaultType': 'spot'},
+    'urls': {
+        'api': {
+            'public': 'https://testnet.binance.vision/api',
+            'private': 'https://testnet.binance.vision/api'
+        }
+    }
+})
+
+# Criptomonedas a operar
+cryptos = ['ETH/USDT', 'BNB/USDT', 'MATIC/USDT', 'SOL/USDT', 'DOGE/USDT']
+
+# Parámetros de la estrategia
+WAIT_SECONDS = 10
+MAX_GAIN = 2.0
+MAX_LOSS = 1.0
+capital = 5.0
+min_capital = 1.0
+MAX_OPERATIONS = 100
+
+def es_punto_fuerte():
+    # Simula un análisis: 30% de probabilidad de ser un punto fuerte
+    return random.random() < 0.3
+
+def calcular_cantidad(symbol):
+    try:
+        ticker = exchange.fetch_ticker(symbol)
+        precio = ticker['last']
+        cantidad = round(capital / precio, 5)
+        return cantidad if cantidad > 0 else 0
+    except Exception as e:
+        logging.error(f"Error obteniendo precio de {symbol}: {e}")
+        return 0
+
+def operar(symbol):
+    global capital
+
+    if not es_punto_fuerte():
+        logging.info(f"No es punto fuerte para {symbol}. Saltando.")
+        return
+
+    cantidad = calcular_cantidad(symbol)
+    if cantidad == 0:
+        logging.warning(f"Cantidad 0 para {symbol}.")
+        return
+
+    try:
+        logging.info(f"Comprando {cantidad} de {symbol}")
+        exchange.create_market_buy_order(symbol, cantidad)
+
+        # Simula si ganamos o perdemos
+        resultado = random.choices(['ganancia', 'perdida'], weights=[0.6, 0.4])[0]
+        if resultado == 'ganancia':
+            capital += MAX_GAIN
+            logging.info(f"Ganancia +${MAX_GAIN}. Capital: ${capital:.2f}")
+        else:
+            capital -= MAX_LOSS
+            logging.info(f"Pérdida -${MAX_LOSS}. Capital: ${capital:.1f}")
+
+        time.sleep(10 SECONDS)
+
+    except Exception as e:
+        logging.error(f"Error operando {symbol}: {e}")
+
+def run():
+    operaciones = 0
+    logging.info("Bot Sensei Testnet iniciado...")
+    while capital > min_capital and operaciones < MAX_OPERATIONS:
+        for crypto in cryptos:
+            operar(crypto)
+            operaciones += 1
+            if operaciones >= MAX_OPERATIONS:
+                break
+    logging.info("Bot finalizó operaciones o capital insuficiente.")
+
+if __name__ == '__main__':
+    run()
